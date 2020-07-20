@@ -40,6 +40,7 @@
 #include <base_local_planner/goal_functions.h>
 #include <base_local_planner/footprint_helper.h>
 #include <pluginlib/class_list_macros.h>
+#include <base_local_planner/world_model.h>
 
 #include <algorithm>
 
@@ -170,6 +171,7 @@ NeoLocalPlanner::~NeoLocalPlanner()
 bool NeoLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 {
 	boost::mutex::scoped_lock lock(m_odometry_mutex);
+	bool obstacles = true;
 
 	if(!m_odometry)
 	{
@@ -227,6 +229,34 @@ bool NeoLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 												* tf2::Vector3(start_vel_x, start_vel_y, 0) * m_lookahead_time;
 		actual_yaw = start_yaw + start_yawrate * m_lookahead_time;
 	}
+	geometry_msgs::Point poses1;
+	// Determining the presence of obstacles in the footprint
+	poses1.x = actual_pos[0];
+	poses1.y = actual_pos[1];
+	// Epos[2] = actual_pos[2];
+	std::vector<geometry_msgs::Point> P1;
+	// std::vector<geometry_msgs::Point> P1_updated;
+
+	P1 = m_cost_map->getRobotFootprint();
+	// Updating the robot footprint 
+	for (int i = 0; i<P1.size(); i++)
+	{
+		P1[i].x= P1[i].x+ actual_pos[0]  ;
+		P1[i].y= P1[i].y+actual_pos[1]  ;
+		// P1[i].x += actual_pos[0]  ;
+	}
+	// double a;
+	// base_local_planner::WorldModel* Cm;
+	// a = Cm->footprintCost(poses1,P1,0, 0);
+	// std::cout<<a<<std::endl;
+	// P1_updated = P1;
+	footprint_cells = base_local_planner::FootprintHelper().getFootprintCells(Epos, P1, costmap_, true	);
+				// Checking for obstacles based on the footprint of the robot
+	std::cout<<footprint_cells.size()<<std::endl;
+	// for(int i=0; i<=(footprint_cells.x).size(); i++)
+	// 	{if(footprint_cells.x[i] >= 90)
+	// 	{obstacles = true;}	else{obstacles = false;}}
+
 	const tf2::Transform actual_pose = tf2::Transform(createQuaternionFromYaw(actual_yaw), actual_pos);
 
 	// compute cost gradients
@@ -462,6 +492,7 @@ bool NeoLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 		else
 		{
 			// use term for static target orientation
+
 			control_yawrate = yaw_error * m_static_yaw_gain;
 
 			m_state = state_t::STATE_ROTATING;
