@@ -39,9 +39,9 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <base_local_planner/goal_functions.h>
 #include <base_local_planner/footprint_helper.h>
+
 #include <pluginlib/class_list_macros.h>
 #include <base_local_planner/world_model.h>
-
 #include <algorithm>
 
 // register this planner as a BaseGlobalPlanner plugin
@@ -229,33 +229,28 @@ bool NeoLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 												* tf2::Vector3(start_vel_x, start_vel_y, 0) * m_lookahead_time;
 		actual_yaw = start_yaw + start_yawrate * m_lookahead_time;
 	}
-	geometry_msgs::Point poses1;
 	// Determining the presence of obstacles in the footprint
+	geometry_msgs::Point poses1;
 	poses1.x = actual_pos[0];
 	poses1.y = actual_pos[1];
-	// Epos[2] = actual_pos[2];
 	std::vector<geometry_msgs::Point> P1;
-	// std::vector<geometry_msgs::Point> P1_updated;
-
 	P1 = m_cost_map->getRobotFootprint();
 	// Updating the robot footprint 
 	for (int i = 0; i<P1.size(); i++)
 	{
 		P1[i].x= P1[i].x+ actual_pos[0]  ;
-		P1[i].y= P1[i].y+actual_pos[1]  ;
-		// P1[i].x += actual_pos[0]  ;
+		P1[i].y= P1[i].y+ actual_pos[1]  ;
+
 	}
-	// double a;
-	// base_local_planner::WorldModel* Cm;
-	// a = Cm->footprintCost(poses1,P1,0, 0);
-	// std::cout<<a<<std::endl;
-	// P1_updated = P1;
-	footprint_cells = base_local_planner::FootprintHelper().getFootprintCells(Epos, P1, costmap_, true	);
-				// Checking for obstacles based on the footprint of the robot
-	std::cout<<footprint_cells.size()<<std::endl;
-	// for(int i=0; i<=(footprint_cells.x).size(); i++)
-	// 	{if(footprint_cells.x[i] >= 90)
-	// 	{obstacles = true;}	else{obstacles = false;}}
+	world_model_ = new base_local_planner::CostmapModel(*m_cost_map->getCostmap());
+	obstacle_in_rot = world_model_->footprintCost(poses1, P1, 2.0,2.0);
+
+	if(obstacle_in_rot == -1)
+	{
+		ROS_WARN_THROTTLE(3, "During the rotation robot predicted an obstacle - Please free the robot using Joy");
+		cost_rot_obstacles = 0.0;
+	}
+	else{cost_rot_obstacles = 1.0; }
 
 	const tf2::Transform actual_pose = tf2::Transform(createQuaternionFromYaw(actual_yaw), actual_pos);
 
@@ -589,7 +584,7 @@ bool NeoLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 	cmd_vel.linear.z = 0;
 	cmd_vel.angular.x = 0;
 	cmd_vel.angular.y = 0;
-	cmd_vel.angular.z = fmin(fmax(control_yawrate, -m_limits.max_vel_theta), m_limits.max_vel_theta);
+	cmd_vel.angular.z = fmin(fmax(control_yawrate, -m_limits.max_vel_theta), m_limits.max_vel_theta)*cost_rot_obstacles;
 
 	if(m_update_counter % 20 == 0) {
 		ROS_INFO_NAMED("NeoLocalPlanner", "dt=%f, pos_error=(%f, %f), yaw_error=%f, cost=%f, obstacle_dist=%f, obstacle_cost=%f, delta_cost=(%f, %f, %f), state=%d, cmd_vel=(%f, %f), cmd_yawrate=%f",

@@ -50,6 +50,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
 #include <base_local_planner/world_model.h>
+#include <base_local_planner/costmap_model.h>
 
 // using namespace costmap_2d;/
 
@@ -78,9 +79,10 @@ private:
 	tf2_ros::Buffer* m_tf = 0;
 	costmap_2d::Costmap2DROS* m_cost_map = 0;
 	std::vector<geometry_msgs::PoseStamped> m_global_plan;
-
+	// const costmap_2d::Costmap2D & 	costmap_;
 	boost::mutex m_odometry_mutex;
 	nav_msgs::Odometry::ConstPtr m_odometry;
+	base_local_planner::CostmapModel* model1;	
 
 	ros::Subscriber m_odom_sub;
 	ros::Publisher m_local_plan_pub;
@@ -138,7 +140,10 @@ private:
 	geometry_msgs::Twist m_last_cmd_vel;
 	std::vector<base_local_planner::Position2DInt> footprint_cells;
 	Eigen::Vector3f Epos;
-	const costmap_2d::Costmap2D costmap_; 
+	const costmap_2d::Costmap2D costmap_;
+	base_local_planner::CostmapModel* world_model_;
+	double obstacle_in_rot = 0;
+	double cost_rot_obstacles = 0;
 };
 
 
