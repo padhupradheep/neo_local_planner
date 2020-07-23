@@ -603,7 +603,7 @@ bool NeoLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 
 	if(m_enable_software_stop == true)
 	{
-		if(temp<0 && right_watchout == 1)
+		if(temp<0 && left_watchout == 1)
 		{
 			ROS_WARN_THROTTLE(1, "During the rotation robot predicted an obstacle on the left! Please free the robot using Joy");
 			
@@ -611,7 +611,7 @@ bool NeoLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 			
 
 		}
-		else if(temp>0 && left_watchout == 1)
+		else if(temp>0 && right_watchout == 1)
 		{
 			ROS_WARN_THROTTLE(1, "During the rotation robot predicted an obstacle on the right! Please free the robot using Joy");
 
