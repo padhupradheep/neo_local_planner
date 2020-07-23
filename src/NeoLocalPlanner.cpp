@@ -244,22 +244,23 @@ bool NeoLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 	}
 	world_model_ = new base_local_planner::CostmapModel(*m_cost_map->getCostmap());
 	obstacle_in_rot = world_model_->footprintCost(poses1, P1, 1.0,1.0);
-	// std::cout<<local_pose.getOrigin().z()- actual_yaw<<std::endl;
-	// std::cout<<obstacle_in_rot<<std::endl;
-	if(obstacle_in_rot == -1 && (local_pose.getOrigin().z()- actual_yaw < 0))
-	{
-		cost_rot_obstacles_left = 0.0;
-		left_watchout = 1;
+
+	if(m_enable_software_stop == true)
+	{	
+		if(obstacle_in_rot == -1 && (local_pose.getOrigin().z()- actual_yaw < 0))
+		{
+			left_watchout = 1;
+		}
+		else if(obstacle_in_rot == -1 && (local_pose.getOrigin().z()- actual_yaw > 0))
+		{
+			right_watchout = 1;
+		}
+		else
+		{
+			left_watchout = 0;
+			right_watchout = 0;
+		}
 	}
-	else if(obstacle_in_rot == -1 && (local_pose.getOrigin().z()- actual_yaw > 0))
-	{
-		cost_rot_obstacles_right = 0.0;
-		right_watchout = 1;
-	}
-	else{cost_rot_obstacles_left = 1.0; 
-		cost_rot_obstacles_right = 1.0;
-		left_watchout = 0;
-		right_watchout = 0;}
 
 	const tf2::Transform actual_pose = tf2::Transform(createQuaternionFromYaw(actual_yaw), actual_pos);
 
@@ -586,6 +587,9 @@ bool NeoLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 			control_yawrate = control[2];
 		}
 	}
+	double temp1 = 0;
+	temp1 = control_yawrate;
+
 
 	// fill return data
 	cmd_vel.linear.x = fmin(fmax(control_vel_x, m_limits.min_vel_x), m_limits.max_vel_x);
@@ -595,37 +599,40 @@ bool NeoLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 	cmd_vel.angular.y = 0;
 	double temp = 0;
 	temp = fmin(fmax(control_yawrate, -m_limits.max_vel_theta), m_limits.max_vel_theta);
-std::cout<<"right_flag:"<<right_watchout<<std::endl;
-	if(temp<0 && left_watchout == 1)
-	{		
-		
-		ROS_WARN_THROTTLE(1, "During the rotation robot predicted an obstacle on the left - Please free the robot using Joy");
 
-		cmd_vel.angular.z = fmin(fmax(control_yawrate, -m_limits.max_vel_theta), m_limits.max_vel_theta)*0;
 
-	}
-	else if(temp>0 && right_watchout == 1)
+	if(m_enable_software_stop == true)
 	{
-		
+		if(temp<0 && right_watchout == 1)
+		{
+			ROS_WARN_THROTTLE(1, "During the rotation robot predicted an obstacle on the left! Please free the robot using Joy");
+			
+			cmd_vel.angular.z = fmin(fmax(control_yawrate, -m_limits.max_vel_theta), m_limits.max_vel_theta)*0;
+			
 
-		ROS_WARN_THROTTLE(1, "During the rotation robot predicted an obstacle on the right - Please free the robot using Joy");
+		}
+		else if(temp>0 && left_watchout == 1)
+		{
+			ROS_WARN_THROTTLE(1, "During the rotation robot predicted an obstacle on the right! Please free the robot using Joy");
 
-		cmd_vel.angular.z = fmin(fmax(control_yawrate, -m_limits.max_vel_theta), m_limits.max_vel_theta)*0;
-		
+			cmd_vel.angular.z = fmin(fmax(control_yawrate, -m_limits.max_vel_theta), m_limits.max_vel_theta)*0;
+			
+		}
+		else if(right_watchout == 1 && left_watchout == 1)
+		{
+			cmd_vel.angular.z = 0;
+		}
+		else
+		{
+			cmd_vel.angular.z = fmin(fmax(control_yawrate, -m_limits.max_vel_theta), m_limits.max_vel_theta);
+		}
+
 	}
-	else if(temp>0 && left_watchout == 0)
+
+	else
 	{
 		cmd_vel.angular.z = fmin(fmax(control_yawrate, -m_limits.max_vel_theta), m_limits.max_vel_theta);
-		
-
 	}
-	else if(temp<0 && right_watchout == 0)
-
-	{
-		cmd_vel.angular.z = fmin(fmax(control_yawrate, -m_limits.max_vel_theta), m_limits.max_vel_theta);
-		
-	}
-	
 
 	if(m_update_counter % 20 == 0) {
 		ROS_INFO_NAMED("NeoLocalPlanner", "dt=%f, pos_error=(%f, %f), yaw_error=%f, cost=%f, obstacle_dist=%f, obstacle_cost=%f, delta_cost=(%f, %f, %f), state=%d, cmd_vel=(%f, %f), cmd_yawrate=%f",
@@ -757,6 +764,7 @@ void NeoLocalPlanner::initialize(std::string name, tf2_ros::Buffer* tf, costmap_
 	m_max_backup_dist = 	private_nh.param<double>("max_backup_dist", m_differential_drive ? 0.1 : 0.0);
 	m_min_stop_dist = 		private_nh.param<double>("min_stop_dist", 0.5);
 	m_emergency_acc_lim_x = private_nh.param<double>("emergency_acc_lim_x", m_limits.acc_lim_x * 4);
+	m_enable_software_stop = private_nh.param<bool>("enable_software_stop", true);
 
 	m_tf = tf;
 	m_cost_map = costmap_ros;

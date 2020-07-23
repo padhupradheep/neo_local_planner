@@ -117,6 +117,7 @@ private:
 	double m_min_stop_dist = 0;			// [m]
 	double m_emergency_acc_lim_x = 0;	// [m/s^2]
 
+	bool m_enable_software_stop = true; 
 	bool m_differential_drive = false;
 	bool m_constrain_final = false;
 
