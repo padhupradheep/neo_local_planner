@@ -600,14 +600,13 @@ bool NeoLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 	double temp = 0;
 	temp = fmin(fmax(control_yawrate, -m_limits.max_vel_theta), m_limits.max_vel_theta);
 
-
 	if(m_enable_software_stop == true)
 	{
 		if(temp<0 && left_watchout == 1)
 		{
 			ROS_WARN_THROTTLE(1, "During the rotation robot predicted an obstacle on the left! Please free the robot using Joy");
 			
-			cmd_vel.angular.z = fmin(fmax(control_yawrate, -m_limits.max_vel_theta), m_limits.max_vel_theta)*0;
+			cmd_vel.angular.z = 0;
 			
 
 		}
@@ -615,13 +614,20 @@ bool NeoLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
 		{
 			ROS_WARN_THROTTLE(1, "During the rotation robot predicted an obstacle on the right! Please free the robot using Joy");
 
-			cmd_vel.angular.z = fmin(fmax(control_yawrate, -m_limits.max_vel_theta), m_limits.max_vel_theta)*0;
+			cmd_vel.angular.z = 0;
 			
 		}
 		else if(right_watchout == 1 && left_watchout == 1)
 		{
 			cmd_vel.angular.z = 0;
 		}
+
+		else if(temp!=0 && right_watchout == 1 && left_watchout == 1)
+		{
+			ROS_WARN_THROTTLE(1, "During the rotation robot predicted an obstacle on both the side! Please free the robot using Joy");
+			cmd_vel.angular.z = 0;
+		}
+
 		else
 		{
 			cmd_vel.angular.z = fmin(fmax(control_yawrate, -m_limits.max_vel_theta), m_limits.max_vel_theta);
